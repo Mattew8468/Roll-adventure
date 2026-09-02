@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roll Quest: AI Dice Adventure</title>
+  <!-- Google Fonts: Cinzel for headers, Inter for UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background elements -->
+  <div class="ambient-glow purple"></div>
+  <div class="ambient-glow cyan"></div>
+
+  <!-- Global API Settings Button (Floating) -->
+  <div class="settings-cog-container">
+    <button id="toggle-settings-btn" class="btn btn-small">⚙️ AI Connection</button>
+  </div>
+
+  <!-- API Settings Overlay Modal -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-content glass-card api-settings-card">
+      <h2 class="glow-text">LM Studio Settings</h2>
+      <p class="modal-subtitle">Configure your local AI server connection details below.</p>
+      
+      <div class="settings-form">
+        <div class="input-group">
+          <label for="api-url-input">API Endpoint URL</label>
+          <input type="text" id="api-url-input" value="http://localhost:1234/v1" placeholder="e.g. http://localhost:1234/v1">
+        </div>
+        <div class="input-group">
+          <label for="api-model-input">Model Name</label>
+          <input type="text" id="api-model-input" value="gemma-4-12b-it-uncensored" placeholder="e.g. gemma-4-12b-it-uncensored">
+        </div>
+        
+        <div class="connection-status-panel">
+          <div class="status-indicator-group">
+            <span class="status-dot offline" id="connection-dot"></span>
+            <span id="connection-text">Status: Checking...</span>
+          </div>
+          <button id="test-connection-btn" class="btn btn-secondary">Test Connection</button>
+        </div>
+      </div>
+      <button id="close-settings-btn" class="btn btn-primary">Save & Close</button>
+    </div>
+  </div>
+
+  <div id="game-container">
+    
+    <!-- ============================================ -->
+    <!-- 1. START / CLASS SELECTION SCREEN           -->
+    <!-- ============================================ -->
+    <div id="start-screen" class="screen active">
+      <header class="game-header">
+        <h1 class="glow-text">ROLL QUEST</h1>
+        <p class="subtitle">AI-Driven D&D Dice Adventure</p>
+      </header>
+
+      <div class="selection-panel main-launcher-panel">
+        <div class="launcher-section" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+          <h2>Forge a New Legend</h2>
+          <button id="btn-trigger-create" class="btn btn-primary btn-glow" style="width: 100%; max-width: 320px; font-size: 1.1rem; padding: 14px 20px;">
+            🆕 Create New Hero
+          </button>
+        </div>
+
+        <div class="launcher-section" style="margin-top: 40px; width: 100%;">
+          <h2 class="glow-text gold" style="font-family: var(--font-header); font-size: 1.4rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">💾 Load Saved Heroes</h2>
+          <div id="save-slots-container" class="save-slots-list" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px; width: 100%;">
+            <div class="empty-saves-message" style="color: #64748b; font-size: 0.9rem; text-align: center; padding: 20px;">
+              No saved heroes found. Create a new hero to start your adventure!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: CHARACTER CUSTOMIZATION SCREEN          -->
+    <!-- ============================================ -->
+    <div id="customization-screen" class="screen">
+      <header class="game-header">
+        <h1 class="glow-text">CUSTOMIZE YOUR HERO</h1>
+        <p class="subtitle">Forge your identity and allocate starting attributes</p>
+      </header>
+
+      <div class="customization-panel glass-card">
+        <div class="customization-grid">
+          
+          <!-- Column 1: Portrait & Identity details -->
+          <div class="customization-col">
+            <div class="customization-section">
+              <h3>1. Portrait & Identity</h3>
+              <div class="portrait-upload-container" style="display: flex; justify-content: center; margin-bottom: 15px;">
+                <div class="portrait-preview-box" id="portrait-upload-box" style="width: 120px; height: 120px; border: 2px dashed var(--accent-gold); border-radius: 50%; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(0,0,0,0.3); position: relative; transition: all 0.3s ease;">
+                  <img id="avatar-preview-img" class="hidden" style="width: 100%; height: 100%; object-fit: cover;" src="" alt="Hero Portrait">
+                  <div id="portrait-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 10px;">
+                    <span style="font-size: 1.5rem;">📸</span>
+                    <span style="font-size: 0.65rem; color: #94a3b8;">Upload Portrait</span>
+                  </div>
+                </div>
+                <input type="file" id="avatar-upload-input" accept="image/*" class="hidden">
+              </div>
+              
+              <div class="input-group">
+                <label for="custom-name-input">Character Name</label>
+                <input type="text" id="custom-name-input" value="Hero" maxlength="15" placeholder="Enter name...">
+              </div>
+            </div>
+            
+            <div class="customization-section" style="margin-top: 20px;">
+              <h3>2. Identity Details</h3>
+              <div class="details-selectors">
+                <div class="select-group">
+                  <label for="select-gender">Gender</label>
+                  <select id="select-gender" class="btn btn-secondary select-custom" style="width: 100%; text-align: left; background: var(--input-bg); border-color: rgba(255,255,255,0.1); height: 40px; padding: 0 10px; color: white;">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Non-binary">Non-Binary</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </div>
+                <div class="select-group" style="margin-top: 10px;">
+                  <label for="select-race">Race</label>
+                  <select id="select-race" class="btn btn-secondary select-custom" style="width: 100%; text-align: left; background: var(--input-bg); border-color: rgba(255,255,255,0.1); height: 40px; padding: 0 10px; color: white;">
+                    <option value="Human">Human (+5 HP)</option>
+                    <option value="Elf">Elf (+1 AC)</option>
+                    <option value="Dwarf">Dwarf (+1 Damage)</option>
+                    <option value="Halfling">Halfling (+1 Atk Mod, Short: +1 AC)</option>
+                    <option value="Dragonborn">Dragonborn (+10% Fire/Elemental Res)</option>
+                  </select>
+                </div>
+                <div class="select-group" style="margin-top: 10px;">
+                  <label for="select-height">Height</label>
+                  <select id="select-height" class="btn btn-secondary select-custom" style="width: 100%; text-align: left; background: var(--input-bg); border-color: rgba(255,255,255,0.1); height: 40px; padding: 0 10px; color: white;">
+                    <option value="Short">Short (+1 AC)</option>
+                    <option value="Medium">Medium (Balanced)</option>
+                    <option value="Tall">Tall (+2 HP, +1 Damage)</option>
+                  </select>
+                </div>
+                <div class="select-group" style="margin-top: 10px;">
+                  <label for="select-background">Background</label>
+                  <select id="select-background" class="btn btn-secondary select-custom" style="width: 100%; text-align: left; background: var(--input-bg); border-color: rgba(255,255,255,0.1); height: 40px; padding: 0 10px; color: white;">
+                    <option value="Soldier">Soldier (+5 HP, starts with Shield skill)</option>
+                    <option value="Urchin">Urchin (+1 AC, starts with Poison Blade)</option>
+                    <option value="Scholar">Scholar (+1 spell slot/mana, starts with Magic Shield)</option>
+                    <option value="Acolyte">Acolyte (+3 potions, starts with Healing Aura)</option>
+                    <option value="Noble">Noble (+50 starting gold, starts with Gold Toss)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Class Selection & Stat point allocation -->
+          <div class="customization-col">
+            <div class="customization-section">
+              <h3>3. Class & Subclass</h3>
+              <div class="select-group">
+                <label for="select-class">Base Class</label>
+                <select id="select-class" class="btn btn-secondary select-custom" style="width: 100%; text-align: left; background: var(--input-bg); border-color: rgba(255,255,255,0.1); height: 40px; padding: 0 10px; color: white;">
+                  <option value="Fighter">Fighter</option>
+                  <option value="Rogue">Rogue</option>
+                  <option value="Wizard">Wizard</option>
+                </select>
+              </div>
+              <div class="select-group" style="margin-top: 10px;">
+                <label for="select-subclass">Subclass</label>
+                <select id="select-subclass" class="btn btn-secondary select-custom" style="width: 100%; text-align: left; background: var(--input-bg); border-color: rgba(255,255,255,0.1); height: 40px; padding: 0 10px; color: white;">
+                  <option value="Champion">Champion (Fighter: critRange = 18)</option>
+                  <option value="BattleMaster">Battle Master (Fighter: +1d4 damage die)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="customization-section" style="margin-top: 20px;">
+              <div class="points-header">
+                <h3>4. Spend Attribute Points</h3>
+                <div class="points-badge"><span id="custom-points-left">10</span> Points Left</div>
+              </div>
+
+              <div class="stat-allocators">
+                <!-- HP -->
+                <div class="allocator-row">
+                  <div class="allocator-info">
+                    <span class="allocator-name">Max Health (HP)</span>
+                    <span class="allocator-desc">+2 HP per point</span>
+                  </div>
+                  <div class="allocator-controls">
+                    <button type="button" class="btn btn-small btn-minus" data-stat="hp">-</button>
+                    <span class="allocator-val" id="alloc-hp-val">0</span>
+                    <button type="button" class="btn btn-small btn-plus" data-stat="hp">+</button>
+                  </div>
+                </div>
+
+                <!-- AC -->
+                <div class="allocator-row">
+                  <div class="allocator-info">
+                    <span class="allocator-name">Armor Class (AC)</span>
+                    <span class="allocator-desc">+1 AC per 2 points</span>
+                  </div>
+                  <div class="allocator-controls">
+                    <button type="button" class="btn btn-small btn-minus" data-stat="ac">-</button>
+                    <span class="allocator-val" id="alloc-ac-val">0</span>
+                    <button type="button" class="btn btn-small btn-plus" data-stat="ac">+</button>
+                  </div>
+                </div>
+
+                <!-- Atk Mod -->
+                <div class="allocator-row">
+                  <div class="allocator-info">
+                    <span class="allocator-name">Attack Modifier</span>
+                    <span class="allocator-desc">+1 Atk per 2 points</span>
+                  </div>
+                  <div class="allocator-controls">
+                    <button type="button" class="btn btn-small btn-minus" data-stat="atk">-</button>
+                    <span class="allocator-val" id="alloc-atk-val">0</span>
+                    <button type="button" class="btn btn-small btn-plus" data-stat="atk">+</button>
+                  </div>
+                </div>
+
+                <!-- Dmg Bonus -->
+                <div class="allocator-row">
+                  <div class="allocator-info">
+                    <span class="allocator-name">Damage Bonus</span>
+                    <span class="allocator-desc">+1 Damage per 2 points</span>
+                  </div>
+                  <div class="allocator-controls">
+                    <button type="button" class="btn btn-small btn-minus" data-stat="dmg">-</button>
+                    <span class="allocator-val" id="alloc-dmg-val">0</span>
+                    <button type="button" class="btn btn-small btn-plus" data-stat="dmg">+</button>
+                  </div>
+                </div>
+
+                <!-- Starting Gold -->
+                <div class="allocator-row">
+                  <div class="allocator-info">
+                    <span class="allocator-name">Extra Starting Gold</span>
+                    <span class="allocator-desc">+10 Gold per point</span>
+                  </div>
+                  <div class="allocator-controls">
+                    <button type="button" class="btn btn-small btn-minus" data-stat="gold">-</button>
+                    <span class="allocator-val" id="alloc-gold-val">0</span>
+                    <button type="button" class="btn btn-small btn-plus" data-stat="gold">+</button>
+                  </div>
+                </div>
+
+                <!-- Starting Potions -->
+                <div class="allocator-row">
+                  <div class="allocator-info">
+                    <span class="allocator-name">Starting Potions</span>
+                    <span class="allocator-desc">+1 Potion per 2 points</span>
+                  </div>
+                  <div class="allocator-controls">
+                    <button type="button" class="btn btn-small btn-minus" data-stat="potions">-</button>
+                    <span class="allocator-val" id="alloc-potions-val">0</span>
+                    <button type="button" class="btn btn-small btn-plus" data-stat="potions">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: Character Sheet Overview -->
+          <div class="customization-col">
+            <div class="customization-section">
+              <h3>5. Character Sheet Overview</h3>
+              <div class="custom-overview-card glass-card" style="padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                <div class="overview-portrait-box" style="width: 100px; height: 100px; border-radius: 50%; overflow: hidden; margin: 0 auto 15px auto; border: 2px solid var(--accent-gold); display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); position: relative;">
+                  <img id="overview-avatar-img" style="width: 100%; height: 100%; object-fit: cover;" class="hidden" src="" alt="Overview Portrait">
+                  <span id="overview-avatar-placeholder" style="font-size: 2.5rem;">👤</span>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 15px;">
+                  <h4 id="overview-name-display" style="font-size: 1.2rem; color: white; margin: 0;">Hero</h4>
+                  <p id="overview-identity-display" style="font-size: 0.75rem; color: #94a3b8; margin: 2px 0 0 0;">Male Human Soldier</p>
+                  <p id="overview-class-display" style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 700; margin: 4px 0 0 0;">Fighter (Champion)</p>
+                </div>
+                
+                <div class="stats-overview-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 10px; border: 1px solid rgba(255,255,255,0.03);">
+                  <div class="stat-overview-item" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="color: #64748b;">Max HP:</span>
+                    <span id="overview-hp-val" style="color: white; font-weight: 700;">35</span>
+                  </div>
+                  <div class="stat-overview-item" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="color: #64748b;">Armor (AC):</span>
+                    <span id="overview-ac-val" style="color: white; font-weight: 700;">16</span>
+                  </div>
+                  <div class="stat-overview-item" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="color: #64748b;">Attack Mod:</span>
+                    <span id="overview-atk-val" style="color: white; font-weight: 700;">+3</span>
+                  </div>
+                  <div class="stat-overview-item" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="color: #64748b;">Dmg Bonus:</span>
+                    <span id="overview-dmg-val" style="color: white; font-weight: 700;">+0</span>
+                  </div>
+                  <div class="stat-overview-item" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="color: #64748b;">Gold:</span>
+                    <span id="overview-gold-val" style="color: var(--accent-gold); font-weight: 700;">20g</span>
+                  </div>
+                  <div class="stat-overview-item" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="color: #64748b;">Potions:</span>
+                    <span id="overview-potions-val" style="color: #a3f7bf; font-weight: 700;">1</span>
+                  </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                  <span style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Starting Skills:</span>
+                  <div id="overview-skills-list" style="display: flex; flex-direction: column; gap: 6px;">
+                    <!-- Dynamically populated with active skills -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Summary and confirmation -->
+        <div class="customization-footer">
+          <div class="hero-summary-preview">
+            Preview: Forge your custom hero and begin your journey.
+          </div>
+          <button type="button" id="confirm-customization-btn" class="btn btn-primary btn-glow">Finalize Character & Enter Tavern</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 2. THE INN / TAVERN LOBBY SCREEN            -->
+    <!-- ============================================ -->
+    <div id="inn-screen" class="screen">
+      <header class="combat-header">
+        <div class="stage-info">
+          <span class="stage-label">SAFETY OF THE HEARTH</span>
+          <h2>The Sleeping Dragon Inn</h2>
+        </div>
+        <div class="score-info">
+          <div>Gold: <span id="inn-gold-display">0</span></div>
+          <div>Quests Completed: <span id="inn-quests-display">0</span></div>
+        </div>
+      </header>
+
+      <div class="inn-grid">
+        <!-- Character Info Block -->
+        <aside class="game-panel character-sheet">
+          <div class="panel-header" style="display: flex; align-items: center; gap: 15px; cursor: pointer;" id="inn-avatar-clickbox" title="Click to view full character stat sheet">
+            <div class="avatar-thumbnail" id="inn-avatar-thumbnail" style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent-gold); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); flex-shrink: 0;">
+              <span id="inn-avatar-placeholder" style="font-size: 1.5rem;">👤</span>
+              <img id="inn-avatar-img" class="hidden" style="width: 100%; height: 100%; object-fit: cover;" src="">
+            </div>
+            <div>
+              <span class="class-badge" id="inn-class-badge" style="margin-left: 0;">Fighter</span>
+              <h3 id="inn-player-name" style="margin: 3px 0 0 0; font-size: 1.15rem;">Hero Name</h3>
+            </div>
+          </div>
+          <div class="stat-container">
+            <div class="bar-group">
+              <div class="bar-label">
+                <span>Health</span>
+                <span id="inn-hp-text">35/35</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="inn-hp-bar" class="progress-bar hp-bar" style="width: 100%;"></div>
+              </div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">
+                <span>XP (Level <span id="inn-level">1</span>)</span>
+                <span id="inn-xp-text">0/100</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="inn-xp-bar" class="progress-bar xp-bar" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-box">
+                <span class="stat-name">Attack Mod</span>
+                <span class="stat-value" id="inn-stat-atk">+3</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-name">Armor Class</span>
+                <span class="stat-value" id="inn-stat-ac">16</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-name">Damage Bonus</span>
+                <span class="stat-value" id="inn-stat-dmg">+0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-name">Potions</span>
+                <span class="stat-value" id="inn-stat-potions">1</span>
+              </div>
+            </div>
+            <div class="inn-heal-action">
+              <button id="inn-rest-btn" class="btn btn-secondary btn-action" style="width: 100%;">
+                💤 Rest at Inn (Heal Full, Costs 10g)
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Tavern Tab Container -->
+        <main class="tavern-main-content" style="display: flex; flex-direction: column; gap: 15px;">
+          <!-- Tab Headers -->
+          <div class="tavern-tabs" style="display: flex; gap: 10px;">
+            <button id="tab-quests-btn" class="btn btn-secondary selected" style="flex: 1; padding: 10px; font-weight: 700;">📜 Quest Board</button>
+            <button id="tab-skills-btn" class="btn btn-secondary" style="flex: 1; padding: 10px; font-weight: 700;">⚔️ Skills Guild</button>
+          </div>
+          
+          <!-- Content 1: Quest Board Panel -->
+          <div id="quest-board-tab" class="quest-board-panel glass-card" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div class="quest-board-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h2 class="glow-text gold" style="margin: 0; font-family: var(--font-header);">Quest Board</h2>
+              <button id="refresh-quests-btn" class="btn btn-secondary btn-small">📜 Fetch New Quests</button>
+            </div>
+            
+            <div id="quests-loader" class="quests-loader hidden">
+              <div class="spinner"></div>
+              <p>Gemma is drafting legendary quests from the local archives...</p>
+            </div>
+  
+            <div class="quest-cards-container" id="quest-cards-container">
+              <div class="quest-card-static">
+                <h3>Empty Board</h3>
+                <p>Click "Fetch New Quests" to let LM Studio generate custom quests for your hero!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content 2: Skills Guild Panel -->
+          <div id="skills-guild-tab" class="skills-guild-panel glass-card hidden" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div class="skills-guild-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+              <h2 class="glow-text gold" style="margin: 0; font-family: var(--font-header);">Skills Guild</h2>
+              <p class="modal-subtitle" style="margin: 5px 0 0 0; font-size: 0.8rem; color: #94a3b8;">Choose up to 3 active skills to bring into battle. Unlock more skills by leveling up!</p>
+            </div>
+            
+            <div class="active-skills-slots-container" style="display: flex; justify-content: space-around; gap: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border: 1px solid rgba(255,255,255,0.03);">
+              <div class="skill-slot-box" id="slot-0" style="border: 2px dashed rgba(255, 255, 255, 0.1); border-radius: 8px; width: 120px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 5px; cursor: pointer; transition: all 0.3s ease;">
+                <span class="slot-empty-lbl" style="font-size: 0.7rem; color: #64748b;">Skill Slot 1</span>
+              </div>
+              <div class="skill-slot-box" id="slot-1" style="border: 2px dashed rgba(255, 255, 255, 0.1); border-radius: 8px; width: 120px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 5px; cursor: pointer; transition: all 0.3s ease;">
+                <span class="slot-empty-lbl" style="font-size: 0.7rem; color: #64748b;">Skill Slot 2</span>
+              </div>
+              <div class="skill-slot-box" id="slot-2" style="border: 2px dashed rgba(255, 255, 255, 0.1); border-radius: 8px; width: 120px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 5px; cursor: pointer; transition: all 0.3s ease;">
+                <span class="slot-empty-lbl" style="font-size: 0.7rem; color: #64748b;">Skill Slot 3</span>
+              </div>
+            </div>
+            
+            <div class="skills-pool-section">
+              <h3 style="font-family: var(--font-header); font-size: 1rem; color: var(--accent-cyan); margin-bottom: 10px;">Your Unlocked Skills</h3>
+              <div id="unlocked-skills-pool" class="skills-pool-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-height: 240px; overflow-y: auto; padding-right: 5px;">
+                <!-- Dynamically populated skills list -->
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <!-- Shop Keep -->
+        <aside class="game-panel shop-panel">
+          <div class="panel-header">
+            <h3>Shopkeeper Bram</h3>
+          </div>
+          <div class="shop-inventory">
+            <p class="shop-dialogue">"Looking for gear, traveler? Got the finest elixirs in the realm."</p>
+            
+            <div class="shop-item" id="shop-potion">
+              <div class="shop-item-details">
+                <span class="item-icon">🧪</span>
+                <div class="item-text">
+                  <span class="item-name">Healing Potion</span>
+                  <span class="item-effect">Restores 2d4 + 2 HP</span>
+                </div>
+              </div>
+              <button class="btn btn-small buy-btn" data-cost="15">15g</button>
+            </div>
+
+            <div class="shop-item" id="shop-atk">
+              <div class="shop-item-details">
+                <span class="item-icon">⚔️</span>
+                <div class="item-text">
+                  <span class="item-name">Sharpening Stone</span>
+                  <span class="item-effect">+1 Permanent Damage Bonus</span>
+                </div>
+              </div>
+              <button class="btn btn-small buy-btn" data-cost="40">40g</button>
+            </div>
+
+            <div class="shop-item" id="shop-ac">
+              <div class="shop-item-details">
+                <span class="item-icon">🛡️</span>
+                <div class="item-text">
+                  <span class="item-name">Steel Plating</span>
+                  <span class="item-effect">+1 Permanent AC</span>
+                </div>
+              </div>
+              <button class="btn btn-small buy-btn" data-cost="40">40g</button>
+            </div>
+
+            <div class="shop-item" id="shop-modifier">
+              <div class="shop-item-details">
+                <span class="item-icon">🎯</span>
+                <div class="item-text">
+                  <span class="item-name">Focusing Charm</span>
+                  <span class="item-effect">+1 Permanent Attack Modifier</span>
+                </div>
+              </div>
+              <button class="btn btn-small buy-btn" data-cost="50">50g</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 3. QUEST CHOICE / STORY SCREEN               -->
+    <!-- ============================================ -->
+    <div id="quest-screen" class="screen">
+      <header class="combat-header">
+        <div class="stage-info">
+          <span class="stage-label" id="active-quest-label">ACTIVE QUEST</span>
+          <h2 id="active-quest-title">Hunting the Shadow Thief</h2>
+        </div>
+        <div class="quest-progress">
+          <span id="quest-step-indicator">Step 1 of 4</span>
+          <div class="progress-bar-bg" style="width: 120px; height: 8px;">
+            <div id="quest-step-bar" class="progress-bar xp-bar" style="width: 25%;"></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="quest-layout">
+        <!-- Left: Quick Character Status Panel -->
+        <aside class="game-panel quick-status-panel">
+          <div style="display: flex; align-items: center; gap: 15px; cursor: pointer; margin-bottom: 15px;" id="quest-avatar-clickbox" title="Click to view full character stat sheet">
+            <div class="avatar-thumbnail" id="quest-avatar-thumbnail" style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent-gold); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); flex-shrink: 0;">
+              <span id="quest-avatar-placeholder" style="font-size: 1.5rem;">👤</span>
+              <img id="quest-avatar-img" class="hidden" style="width: 100%; height: 100%; object-fit: cover;" src="">
+            </div>
+            <h3 id="quest-hero-name" style="margin: 0; font-size: 1.15rem;">Hero</h3>
+          </div>
+          <div class="bar-group">
+            <div class="bar-label">
+              <span>HP</span>
+              <span id="quest-hp-text">30/30</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div id="quest-hp-bar" class="progress-bar hp-bar" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div class="quick-stats-row">
+            <div>AC: <strong id="quest-ac-val">16</strong></div>
+            <div>Atk: <strong id="quest-atk-val">+3</strong></div>
+            <div>Dmg: <strong id="quest-dmg-val">+0</strong></div>
+            <div>Potions: <strong id="quest-potions-val">1</strong></div>
+          </div>
+          
+          <div id="quest-spell-slots-row" class="hidden">
+            Spell Slots: <strong id="quest-spell-slots-val">1 / 1</strong>
+          </div>
+          
+          <div class="potion-combat-action">
+            <button id="quest-use-potion-btn" class="btn btn-tertiary btn-small" style="width:100%; margin-top:10px;">
+              🧪 Drink Potion
+            </button>
+          </div>
+        </aside>
+
+        <!-- Center: AI Parchment Story and Decisions -->
+        <main class="quest-story-main">
+          <!-- AI Loading Overlay -->
+          <div id="story-loader" class="story-loader hidden">
+            <div class="spinner"></div>
+            <p>Gemma is forging the path ahead...</p>
+          </div>
+
+          <div class="parchment-container" id="parchment-container">
+            <div class="parchment-content">
+              <p id="quest-narrative-text">
+                Loading adventure...
+              </p>
+            </div>
+          </div>
+
+          <div class="choices-container" id="choices-container">
+            <button class="btn btn-primary choice-card" id="choice-a-btn">
+              <span class="choice-letter">A</span>
+              <p id="choice-a-text">Choice A loading...</p>
+            </button>
+            
+            <button class="btn btn-primary choice-card" id="choice-b-btn">
+              <span class="choice-letter">B</span>
+              <p id="choice-b-text">Choice B loading...</p>
+            </button>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 4. COMBAT SCREEN (REUSED MECHANICS)         -->
+    <!-- ============================================ -->
+    <div id="game-screen" class="screen">
+      <header class="combat-header">
+        <div class="stage-info">
+          <span class="stage-label">COMBAT ENCOUNTER</span>
+          <h2 id="combat-quest-title">Stage 1</h2>
+        </div>
+        <div class="score-info">
+          <div>Gold: <span id="player-gold-display">0</span></div>
+          <div>HP: <span id="combat-hp-fraction">30/30</span></div>
+        </div>
+      </header>
+
+      <div class="game-grid">
+        <!-- Left: Character Sheet -->
+        <aside class="game-panel character-sheet" id="player-sheet">
+          <div class="panel-header" style="display: flex; align-items: center; gap: 15px; cursor: pointer;" id="combat-avatar-clickbox" title="Click to view full character stat sheet">
+            <div class="avatar-thumbnail" id="combat-avatar-thumbnail" style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent-gold); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); flex-shrink: 0;">
+              <span id="combat-avatar-placeholder" style="font-size: 1.5rem;">👤</span>
+              <img id="combat-avatar-img" class="hidden" style="width: 100%; height: 100%; object-fit: cover;" src="">
+            </div>
+            <div>
+              <span class="class-badge" id="player-class-badge" style="margin-left: 0;">Fighter</span>
+              <h3 id="player-name-display" style="margin: 3px 0 0 0; font-size: 1.15rem;">Hero</h3>
+            </div>
+          </div>
+          
+          <div class="stat-container">
+            <div class="bar-group">
+              <div class="bar-label">
+                <span>Health</span>
+                <span id="player-hp-text">30/30</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="player-hp-bar" class="progress-bar hp-bar" style="width: 100%;"></div>
+              </div>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-box">
+                <span class="stat-name">Attack Mod</span>
+                <span class="stat-value" id="stat-atk-mod">+3</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-name">Armor Class</span>
+                <span class="stat-value" id="stat-ac">16</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-name">Spell Slots</span>
+                <span class="stat-value" id="stat-spell-slots">0 / 0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-name">Healing Potions</span>
+                <span class="stat-value" id="stat-potions">1</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="buffs-section">
+            <h4>Active Buffs</h4>
+            <div id="player-buffs-list" class="buffs-list">
+              <div class="empty-list-text">No active buffs.</div>
+            </div>
+            <div class="player-status-list" id="player-status-list" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; min-height: 20px;">
+              <!-- Dynamically populated status badges -->
+            </div>
+          </div>
+        </aside>
+
+        <!-- Middle: Battle Arena & Dice Roller -->
+        <main class="battle-arena">
+          <!-- Enemy Card -->
+          <section class="enemy-panel" id="enemy-panel">
+            <div class="enemy-visuals">
+              <div class="enemy-avatar-container">
+                <div id="enemy-avatar" class="enemy-avatar"></div>
+                <div id="enemy-hit-flash" class="hit-flash"></div>
+              </div>
+              <div class="enemy-details">
+                <h3 id="enemy-name">Goblin Scamp</h3>
+                <span class="enemy-ac">AC: <span id="enemy-ac-val">12</span></span>
+                <p id="enemy-desc" class="enemy-desc">A small, quick, and annoying opponent.</p>
+                <div id="enemy-affinity-panel" style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px;">
+                  <!-- e.g. <span class="badge weak">🔥 Weak: Fire</span> -->
+                </div>
+              </div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">
+                <span>Enemy Health</span>
+                <span id="enemy-hp-text">15/15</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="enemy-hp-bar" class="progress-bar hp-bar enemy" style="width: 100%;"></div>
+              </div>
+            </div>
+            <div class="enemy-status-list" id="enemy-status-list" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; min-height: 20px;">
+              <!-- Dynamically populated status badges -->
+            </div>
+          </section>
+
+          <!-- Floating Damage Text Container -->
+          <div id="damage-text-layer"></div>
+
+          <!-- Dice Arena -->
+          <section class="dice-arena">
+            <div class="arena-background"></div>
+            
+            <div class="dice-wrapper">
+              <div class="dice-container" id="d20-container">
+                <div class="dice-label">D20 (Attack)</div>
+                <div class="dice d20" id="d20">
+                  <div class="face front">20</div>
+                  <div class="face back">1</div>
+                  <div class="face right">15</div>
+                  <div class="face left">5</div>
+                  <div class="face top">10</div>
+                  <div class="face bottom">8</div>
+                </div>
+              </div>
+
+              <div class="dice-container" id="damage-dice-container">
+                <div class="dice-label" id="damage-dice-label">D8 (Damage)</div>
+                <div class="dice d6" id="damage-dice">
+                  <div class="face front">6</div>
+                  <div class="face back">1</div>
+                  <div class="face right">4</div>
+                  <div class="face left">3</div>
+                  <div class="face top">5</div>
+                  <div class="face bottom">2</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dice-result-banner" id="result-banner">
+              Roll to attack!
+            </div>
+          </section>
+
+          <!-- Action Buttons / Interface -->
+          <section class="controls-panel">
+            <div class="combat-buttons" id="combat-actions-container" style="display: grid; grid-template-columns: 1fr; gap: 10px; width: 100%;">
+              <!-- Attack Button -->
+              <button id="attack-btn" class="btn btn-action btn-primary" style="grid-column: 1 / -1; height: 50px;">
+                <span class="btn-icon">⚔️</span> Attack (Roll D20)
+              </button>
+              
+              <!-- Skill buttons will be inserted dynamically here: id="skill-btn-0", etc. -->
+              <div id="combat-skills-container" style="display: flex; gap: 10px; grid-column: 1 / -1; width: 100%;">
+                <!-- Dynamic skills buttons -->
+              </div>
+              
+              <!-- Potion Button -->
+              <button id="heal-btn" class="btn btn-action btn-tertiary" style="grid-column: 1 / -1; height: 45px;">
+                <span class="btn-icon">🧪</span> Potion (<span id="combat-potions-count">1</span> remaining)
+              </button>
+            </div>
+          </section>
+        </main>
+
+        <!-- Right: Log Panel -->
+        <aside class="game-panel log-panel">
+          <div class="panel-header">
+            <h3>Combat Log</h3>
+            <button id="clear-log-btn" class="btn btn-small">Clear</button>
+          </div>
+          <div class="log-content" id="combat-log">
+            <div class="log-entry system">Combat Log initialized.</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 5. GAME OVER SCREEN                         -->
+    <!-- ============================================ -->
+    <div id="game-over-screen" class="screen">
+      <div class="game-over-card glass-card">
+        <div class="skull-icon">💀</div>
+        <h1 class="glow-text red">YOU DIED</h1>
+        <p class="game-over-sub">Your adventure has come to an end.</p>
+        
+        <div class="run-stats">
+          <h3>Your Legend Summary</h3>
+          <div class="run-stats-grid">
+            <div class="run-stat-item">
+              <span class="stat-lbl">Class</span>
+              <span id="summary-class" class="stat-val">Fighter</span>
+            </div>
+            <div class="run-stat-item">
+              <span class="stat-lbl">Quests Cleared</span>
+              <span id="summary-stage" class="stat-val">0</span>
+            </div>
+            <div class="run-stat-item">
+              <span class="stat-lbl">Enemies Slain</span>
+              <span id="summary-defeated" class="stat-val">0</span>
+            </div>
+            <div class="run-stat-item">
+              <span class="stat-lbl">Gold Gathered</span>
+              <span id="summary-gold" class="stat-val">0</span>
+            </div>
+          </div>
+        </div>
+
+        <button id="restart-btn" class="btn btn-primary btn-glow">Return to Title</button>
+      </div>
+    </div>
+
+    <!-- Dynamic Stat Change Popup Notification Modal -->
+    <div id="stat-change-modal" class="modal-overlay">
+      <div class="modal-content glass-card stat-change-card">
+        <h2 class="glow-text gold" id="stat-popup-title">Dungeon Master Message</h2>
+        <p class="modal-subtitle" id="stat-popup-subtitle">Your character's status has been modified by the environment.</p>
+        
+        <div class="stat-change-list" id="stat-popup-list">
+          <!-- Populated dynamically with rows -->
+        </div>
+        
+        <button type="button" id="close-stat-popup-btn" class="btn btn-primary btn-glow">Continue Adventure</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: CHARACTER STAT SHEET MODAL OVERLAY      -->
+    <!-- ============================================ -->
+    <div id="stat-sheet-modal" class="modal-overlay">
+      <div class="modal-content glass-card stat-sheet-card" style="max-width: 500px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+          <h2 class="glow-text gold" style="margin: 0; font-family: var(--font-header);">Hero Character Sheet</h2>
+          <button id="close-stat-sheet-btn" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        </div>
+
+        <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent-gold); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); flex-shrink: 0;">
+            <span id="sheet-avatar-placeholder" style="font-size: 2rem;">👤</span>
+            <img id="sheet-avatar-img" class="hidden" style="width: 100%; height: 100%; object-fit: cover;" src="">
+          </div>
+          <div>
+            <h3 id="sheet-hero-name" style="margin: 0 0 5px 0; font-family: var(--font-header); font-size: 1.3rem;">Hero</h3>
+            <div style="font-size: 0.85rem; color: #94a3b8; display: flex; flex-direction: column; gap: 3px;">
+              <span>Class: <strong id="sheet-hero-class" class="gold">Fighter</strong> (<span id="sheet-hero-subclass">Champion</span>)</span>
+              <span>Identity: <span id="sheet-hero-identity">Male human, scholar</span></span>
+              <span>Level: <strong id="sheet-hero-level" class="gold">1</strong> (XP: <span id="sheet-hero-xp">0/100</span>)</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="margin: 0; color: #cbd5e1;">Attributes & Stats</h4>
+            <div id="sheet-points-indicator" style="background: rgba(245,158,11,0.15); color: var(--accent-gold); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--accent-gold); font-size: 0.8rem; font-weight: bold;">
+              Level Up Points: <span id="sheet-stat-points">0</span>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;" class="sheet-stats-list">
+            <!-- HP -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+              <div>
+                <strong style="display: block; font-size: 0.9rem; color: #f8fafc;">Max Health</strong>
+                <span style="font-size: 0.75rem; color: #64748b;">Increases durability (+3 HP per point)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="sheet-val-hp" style="font-weight: bold; font-size: 1.1rem; color: var(--accent-cyan);">35</span>
+                <button type="button" class="btn btn-secondary btn-small sheet-plus-btn" data-stat="hp" style="padding: 2px 8px; font-size: 0.9rem;">+</button>
+              </div>
+            </div>
+
+            <!-- AC -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+              <div>
+                <strong style="display: block; font-size: 0.9rem; color: #f8fafc;">Armor Class (AC)</strong>
+                <span style="font-size: 0.75rem; color: #64748b;">Increases defense (+1 AC per point, max 20)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="sheet-val-ac" style="font-weight: bold; font-size: 1.1rem; color: var(--accent-cyan);">16</span>
+                <button type="button" class="btn btn-secondary btn-small sheet-plus-btn" data-stat="ac" style="padding: 2px 8px; font-size: 0.9rem;">+</button>
+              </div>
+            </div>
+
+            <!-- Atk Mod -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+              <div>
+                <strong style="display: block; font-size: 0.9rem; color: #f8fafc;">Attack Modifier</strong>
+                <span style="font-size: 0.75rem; color: #64748b;">Increases D20 accuracy (+1 per point)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="sheet-val-atk" style="font-weight: bold; font-size: 1.1rem; color: var(--accent-cyan);">+3</span>
+                <button type="button" class="btn btn-secondary btn-small sheet-plus-btn" data-stat="atk" style="padding: 2px 8px; font-size: 0.9rem;">+</button>
+              </div>
+            </div>
+
+            <!-- Dmg Mod -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+              <div>
+                <strong style="display: block; font-size: 0.9rem; color: #f8fafc;">Damage Bonus</strong>
+                <span style="font-size: 0.75rem; color: #64748b;">Adds direct flat damage (+1 per point)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="sheet-val-dmg" style="font-weight: bold; font-size: 1.1rem; color: var(--accent-cyan);">+0</span>
+                <button type="button" class="btn btn-secondary btn-small sheet-plus-btn" data-stat="dmg" style="padding: 2px 8px; font-size: 0.9rem;">+</button>
+              </div>
+            </div>
+
+            <!-- Spell Slots -->
+            <div id="sheet-spell-slots-row" style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+              <div>
+                <strong style="display: block; font-size: 0.9rem; color: #f8fafc;">Max Spell Slots</strong>
+                <span style="font-size: 0.75rem; color: #64748b;">Enables casting more spells (+1 per point)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="sheet-val-slots" style="font-weight: bold; font-size: 1.1rem; color: var(--accent-cyan);">1</span>
+                <button type="button" class="btn btn-secondary btn-small sheet-plus-btn" data-stat="slots" style="padding: 2px 8px; font-size: 0.9rem;">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 25px;">
+          <button type="button" id="confirm-sheet-stats-btn" class="btn btn-primary btn-glow" style="flex: 1;">Confirm Level Up Stats</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: D20 HARDSHIP CHECK MODAL OVERLAY        -->
+    <!-- ============================================ -->
+    <div id="skill-check-modal" class="modal-overlay">
+      <div class="modal-content glass-card skill-check-card" style="max-width: 400px; width: 90%; text-align: center; padding: 25px;">
+        <h2 class="glow-text gold" id="check-title" style="margin-top: 0; font-family: var(--font-header);">Skill Check!</h2>
+        <p id="check-desc" style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 20px;">You face a hardship that requires a check.</p>
+        
+        <div style="position: relative; margin: 30px auto; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;">
+          <!-- Custom glowing D20 for checking -->
+          <div id="check-d20" class="dice d20 player-dice" style="transform: rotateX(0deg) rotateY(0deg); width: 60px; height: 60px; font-size: 1.5rem; line-height: 60px;">
+            <div class="face front">20</div>
+            <div class="face back">1</div>
+            <div class="face right">4</div>
+            <div class="face left">3</div>
+            <div class="face top">5</div>
+            <div class="face bottom">2</div>
+          </div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 20px;">
+          <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 4px;">Target Difficulty (DC)</div>
+          <div style="font-size: 1.6rem; font-weight: bold; color: var(--accent-cyan);" id="check-dc-val">12</div>
+          <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 6px;" id="check-mod-details">Your Modifier: +3</div>
+        </div>
+
+        <div style="margin-bottom: 15px;" id="check-result-banner" class="dice-result-banner">Click below to roll!</div>
+
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button type="button" id="roll-check-btn" class="btn btn-primary btn-glow" style="width: 100%;">🎲 Roll D20</button>
+          <button type="button" id="resolve-check-btn" class="btn btn-secondary" style="width: 100%; display: none;">Continue</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
